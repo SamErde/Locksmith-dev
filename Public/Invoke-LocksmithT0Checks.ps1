@@ -9,6 +9,14 @@ function Invoke-LocksmithT0Checks {
 #>
 }
 
+function Get-CAEffectiveAuditing {
+
+}
+
+function Get-CARsop {
+
+}
+
 function Get-StrongCertificateBindingEnforcement {
     <#
     .SYNOPSIS
