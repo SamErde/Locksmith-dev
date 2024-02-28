@@ -188,6 +188,21 @@
             $ESC8           = $Results['ESC8']
     }
 
+    # If the ShowIssuedCerts parameter was used and AllIssues contains objects, get issued certificates
+    if ($ShowIssuedCerts -and $AllIssues.Count -gt 0) {
+        $InsecureTemplates = $AllIssues | Where-Object { $_.Technique -like "ESC??" } | Group-Object -Property Name
+        foreach ($template in $InsecureTemplates) {
+            $Forest = $isue.Forest
+            $Technique = $issue.Technique
+            $TemplateName = $issue.Name
+
+            $IssuedCerts = Get-PublishedEscCert -Forest $Forest -CertificateAuthority $CAName -TemplateName $TemplateName # -PriorTo $PriorTo
+
+            # Return something here
+            $IssuedCerts.Count
+        }
+    }
+
     # If these are all empty = no issues found, exit
     if ($null -eq $Results) {
         Write-Host "`n$(Get-Date) : No ADCS issues were found.`n" -ForegroundColor Green

@@ -31,6 +31,24 @@ function Get-PublishedEscCert {
         Get-PublishedEscCert -Forest "fabrikam.com" -CertificateAuthority "CA02" -TemplateOID "1.3.6.1.4.1.311.21.8.123456" -ADCSObject "ESC02"
 
         Retrieves published ESC information for the certificate template with OID "1.3.6.1.4.1.311.21.8.123456" from the "CA02" Certificate Authority in the "fabrikam.com" forest.
+
+    .NOTES
+        This function is called from Invoke-Locksmith or elsewhere with a script block that might look like this work in progress:
+
+        # If the ShowIssuedCerts parameter was used and AllIssues contains objects, get issued certificates
+        if ($ShowIssuedCerts -and $AllIssues.Count -gt 0) {
+            $InsecureTemplates = $AllIssues | Where-Object { $_.Technique -like "ESC??" } | Group-Object -Property Name
+            foreach ($template in $InsecureTemplates) {
+                $Forest = $isue.Forest
+                $Technique = $issue.Technique
+                $TemplateName = $issue.Name
+
+                $IssuedCerts = Get-PublishedEscCert -Forest $Forest -CertificateAuthority $CAName -TemplateName $TemplateName # -PriorTo $PriorTo
+
+                # Return something here
+                $IssuedCerts.Count
+            }
+        }
 #>
     [CmdletBinding()]
     param (
