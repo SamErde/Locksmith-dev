@@ -8,7 +8,7 @@
      '--'                  '--'                  '--'
 ```
 
-A ~~tiny~~ small tool built to detect and fix common misconfigurations in Active Directory Certificate Services.
+A ~~tiny~~ small tool built to find and fix common misconfigurations in Active Directory Certificate Services.
 
 <!-- locksmith-badges-start -->
 ![GitHub release](https://img.shields.io/github/v/release/trimarcjake/locksmith?sort=semver)
@@ -29,6 +29,7 @@ A ~~tiny~~ small tool built to detect and fix common misconfigurations in Active
    3. [Mode 2](#Mode2)
    4. [Mode 3](#Mode3)
    5. [Mode 4](#Mode4)
+   6. [Scans](#Scans)
 
 # Installation
 ## Module
