@@ -31,11 +31,11 @@ function Test-IsRecentVersion {
         Install Module:     Install-Module -Name Locksmith
         Standalone Script:  https://github.com/trimarcjake/locksmith/releases/download/v2.6/Invoke-Locksmith.zip
 
-    .NOTES
-        Author: Sam Erde
-        Date:   02/10/2024
+    .OUTPUTS
+        Boolean
     #>
     [CmdletBinding()]
+    [OutputType([Boolean])]
     param (
         # Check a specific version number from the script
         [Parameter(Mandatory)]
