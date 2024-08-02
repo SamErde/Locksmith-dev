@@ -28,7 +28,7 @@ function Invoke-Scans {
 
     .EXAMPLE
         # Perform all scans
-        Invoke-Scans 
+        Invoke-Scans
 
     .EXAMPLE
         # Perform only the 'Auditing' and 'ESC1' scans
@@ -40,7 +40,9 @@ function Invoke-Scans {
     #>
 
     [CmdletBinding()]
-    param (
+    [OutputType([hashtable])]
+    [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', 'Invoke-Scans', Justification='Keeping plural for now.')]
+    param(
     # Could split Scans and PromptMe into separate parameter sets.
     [Parameter()]
         $ClientAuthEkus,
