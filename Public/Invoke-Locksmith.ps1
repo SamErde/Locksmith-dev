@@ -66,13 +66,28 @@
 
     [CmdletBinding()]
     param (
-        [string]$Forest,
-        [string]$InputPath,
-        [int]$Mode = 0,
+        # [string]$Forest,      # Not Used
+        # [string]$InputPath,   # Not Used
+
+        # The mode to run Locksmith in. Defaults to 0.
+        [Parameter()]
+            [ValidateSet(0,1,2,3,4)]
+            [int]$Mode = 0,
+
+        # The scan[s] you wish to perform in ADCS.
         [Parameter()]
             [ValidateSet('Auditing','ESC1','ESC2','ESC3','ESC4','ESC5','ESC6','ESC8','All','PromptMe')]
             [array]$Scans = 'All',
-        [string]$OutputPath = (Get-Location).Path,
+
+        # The directory to save the output in (defaults to the current working directory).
+        [Parameter()]
+            [ValidateScript({(Test-Path -Path $_ -PathType Container)},
+                ErrorMessage = "{0} is not a valid directory path."
+            )]
+            [string]$OutputPath = $PWD,
+
+        # The credential to use for working with ADCS.
+        [Parameter()]
         [System.Management.Automation.PSCredential]$Credential
     )
 
@@ -105,10 +120,13 @@
     # Exit if running in restricted admin mode without explicit credentials
     if (!$Credential -and (Get-RestrictedAdminModeSetting)) {
         Write-Warning "Restricted Admin Mode appears to be in place, re-run with the '-Credential domain\user' option"
-        break;
+        break
     }
 
     ### Initial variables
+    # For output filenames
+    [string]$FilePrefix = "Locksmith $(Get-Date -format 'yyyy-MM-dd hh-mm-ss') "
+
     # Extended Key Usages for client authentication. A requirement for ESC1
     $ClientAuthEKUs = '1\.3\.6\.1\.5\.5\.7\.3\.2|1\.3\.6\.1\.5\.2\.3\.4|1\.3\.6\.1\.4\.1\.311\.20\.2\.2|2\.5\.29\.37\.0'
 
@@ -158,18 +176,20 @@
 
     ### Generated variables
     # $Dictionary = New-Dictionary
+
+    $Forest = Get-ADForest
     $ForestGC = $(Get-ADDomainController -Discover -Service GlobalCatalog -ForceDiscover | Select-Object -ExpandProperty Hostname) + ":3268"
-    # $DNSRoot = [string]((Get-ADForest).RootDomain | Get-ADDomain).DNSRoot
-    $EnterpriseAdminsSID = ([string]((Get-ADForest).RootDomain | Get-ADDomain).DomainSID) + '-519'
+    # $DNSRoot = [string]($Forest.RootDomain | Get-ADDomain).DNSRoot
+    $EnterpriseAdminsSID = ([string]($Forest.RootDomain | Get-ADDomain).DomainSID) + '-519'
     $PreferredOwner = [System.Security.Principal.SecurityIdentifier]::New($EnterpriseAdminsSID)
-    # $DomainSIDs = (Get-ADForest).Domains | ForEach-Object { (Get-ADDomain $_).DomainSID.Value }
+    # $DomainSIDs = $Forest.Domains | ForEach-Object { (Get-ADDomain $_).DomainSID.Value }
 
     # Add SIDs of (probably) Safe Users to $SafeUsers
     Get-ADGroupMember $EnterpriseAdminsSID | ForEach-Object {
         $SafeUsers += '|' + $_.SID.Value
     }
 
-    (Get-ADForest).Domains | ForEach-Object {
+    $Forest.Domains | ForEach-Object {
         $DomainSID = (Get-ADDomain $_).DomainSID.Value
         <#
             -517 = Cert Publishers
@@ -270,7 +290,7 @@
             Format-Result $ESC8 '1'
         }
         2 {
-            $Output = 'ADCSIssues.CSV'
+            $Output = Join-Path -Path $OutputPath -ChildPath "$FilePrefix ADCSIssues.CSV"
             Write-Host "Writing AD CS issues to $Output..."
             try {
                 $AllIssues | Select-Object Forest, Technique, Name, Issue | Export-Csv -NoTypeInformation $Output
@@ -280,7 +300,7 @@
             }
         }
         3 {
-            $Output = 'ADCSRemediation.CSV'
+            $Output = Join-Path -Path $OutputPath -ChildPath "$FilePrefix ADCSRemediation.CSV"
             Write-Host "Writing AD CS issues to $Output..."
             try {
                 $AllIssues | Select-Object Forest, Technique, Name, DistinguishedName, Issue, Fix | Export-Csv -NoTypeInformation $Output
