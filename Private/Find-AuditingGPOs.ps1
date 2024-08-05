@@ -1,5 +1,5 @@
-function Find-AuditingGPOs {
-    # WIP 
+function Find-AuditingGPO {
+    # WIP
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)]
@@ -12,10 +12,10 @@ function Find-AuditingGPOs {
     foreach ($item in $CAHosts) {
         # For each CA, check all GPOs for CA auditing settings
         # Keep a count of any found and pass if >0, fail if <1
-        
-        if (($CAHosts) -and ($CAHosts.Length -gt 0)) { 
+
+        if (($CAHosts) -and ($CAHosts.Length -gt 0)) {
             $ComputerName = $item.dnsHostName
-        } 
+        }
         else {
             $ComputerName = [System.Net.Dns]::GetHostName()
         }
@@ -29,7 +29,7 @@ function Find-AuditingGPOs {
         Get-GPResultantSetOfPolicy @RsopParams -Verbose
         [xml]$RsopXml = Get-Content -Path $RsopPath
         $GpoNames += $RsopXml.Rsop.ComputerResults.GPO.Name
-        
+
         $GpoNames | ForEach-Object {
             if (
                 Get-GPRegistryValue -Name $_ -Key 'HKLM\SOFTWARE\Policies\Microsoft\Cryptography\OID\EncodingType 0\CertDllCreateCertificateChainEngine\Configurations' -ValueName 'EnableCertSrvAudit' -ErrorAction SilentlyContinue
