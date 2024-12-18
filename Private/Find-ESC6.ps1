@@ -43,7 +43,7 @@
             if ($_.SANFlag -eq 'Yes') {
                 $Issue.Issue = @"
 The dangerous EDITF_ATTRIBUTESUBJECTALTNAME2 flag is enabled on $CAFullname.
-All templates published on this CA will accept a Subject Alternative Name (SAN)
+All templates enabled on this CA will accept a Subject Alternative Name (SAN)
 during enrollment even if the template is not specifically configured to allow a SAN.
 
 As of May 2022, Microsoft has neutered this situation by requiring all SANs to
@@ -51,6 +51,10 @@ be strongly mapped to certificates.
 
 However, if strong mapping has been explicitly disabled on Domain Controllers,
 this configuration remains vulnerable to privilege escalation attacks.
+
+More info:
+  - https://posts.specterops.io/certified-pre-owned-d95910965cd2
+  - https://support.microsoft.com/en-us/topic/kb5014754-certificate-based-authentication-changes-on-windows-domain-controllers-ad2c23b0-15d8-4340-a468-4d4f3b188f16
 
 "@
                 $Issue.Fix = @"
