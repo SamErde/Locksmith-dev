@@ -28,18 +28,20 @@
         [Microsoft.ActiveDirectory.Management.ADEntity[]]$ADCSObjects
     )
 
-    $ADCSObjects | Where-Object objectClass -match 'pKICertificateTemplate' -PipelineVariable template | ForEach-Object {
-        # Write-Host "[?] Checking if template `"$($template.Name)`" is Enabled on any Certification Authority." -ForegroundColor Blue
-        $Enabled = $false
-        $EnabledOn = @()
-        foreach ($ca in ($ADCSObjects | Where-Object objectClass -eq 'pKIEnrollmentService')) {
-            if ($ca.certificateTemplates -contains $template.Name) {
-                $Enabled = $true
-                $EnabledOn += $ca.Name
-            }
+    process {
+        $ADCSObjects | Where-Object objectClass -Match 'pKICertificateTemplate' -PipelineVariable template | ForEach-Object {
+            # Write-Host "[?] Checking if template `"$($template.Name)`" is Enabled on any Certification Authority." -ForegroundColor Blue
+            $Enabled = $false
+            $EnabledOn = @()
+            foreach ($ca in ($ADCSObjects | Where-Object objectClass -EQ 'pKIEnrollmentService')) {
+                if ($ca.certificateTemplates -contains $template.Name) {
+                    $Enabled = $true
+                    $EnabledOn += $ca.Name
+                }
 
-            $template | Add-Member -NotePropertyName Enabled -NotePropertyValue $Enabled -Force
-            $template | Add-Member -NotePropertyName EnabledOn -NotePropertyValue $EnabledOn -Force
+                $template | Add-Member -NotePropertyName Enabled -NotePropertyValue $Enabled -Force
+                $template | Add-Member -NotePropertyName EnabledOn -NotePropertyValue $EnabledOn -Force
+            }
         }
     }
 }

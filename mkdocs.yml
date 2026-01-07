@@ -11,10 +11,10 @@
 site_name: "Locksmith"
 site_url: "https://jakehildreth.github.io/Locksmith"
 repo_url: "https://github.com/jakehildreth/Locksmith"
-repo_name: "TrimarcJake/Locksmith"
+repo_name: "JakeHildreth/Locksmith"
 # edit_uri: edit/main/docs/
 # edit_uri_template:
-site_description: "A small tool to find and fix common misconfigurations in Active Directory Certificate Services." # meta tag to the generated HTML heade
+site_description: "A small tool to find and fix common misconfigurations in Active Directory Certificate Services." # meta tag to the generated HTML header
 site_author: "Jake Hildreth" # meta tag to the generated HTML header
 copyright: "(c) 2024 Jake Hildreth."
 # remote_branch: gh-deploy
@@ -83,10 +83,3 @@ theme:
     - navigation.top
     - toc.follow
     - toc.integrate
-
-  #  favicon:
-  #  icon:
-  #    repo:
-  #  font:
-  #    text: Work Sans
-  #  logo:

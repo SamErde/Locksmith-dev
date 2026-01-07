@@ -93,11 +93,15 @@ function Invoke-Locksmith {
             'ESC4',
             'ESC5',
             'ESC6',
+            'ESC7',
             'ESC8',
+            'ESC9',
             'ESC11',
             'ESC13',
             'ESC15',
             'EKUwu',
+            'ESC16',
+            'ESC17',
             'All',
             'PromptMe'
         )]
@@ -152,9 +156,12 @@ function Invoke-Locksmith {
     # Extended Key Usages for client authentication. A requirement for ESC1, ESC3 Condition 2, and ESC13
     $ClientAuthEKUs = '1\.3\.6\.1\.5\.5\.7\.3\.2|1\.3\.6\.1\.5\.2\.3\.4|1\.3\.6\.1\.4\.1\.311\.20\.2\.2|2\.5\.29\.37\.0'
 
+    # Extended Key Usages for server authentication. A requirement for ESC17
+    $ServerAuthEKUs = '1\.3\.6\.1\.5\.5\.7\.3\.1'
+
     # GenericAll, WriteDacl, and WriteOwner all permit full control of an AD object.
     # WriteProperty may or may not permit full control depending the specific property and AD object type.
-    $DangerousRights = 'GenericAll|WriteDacl|WriteOwner|WriteProperty'
+    $DangerousRights = 'GenericAll|Write'
 
     # Extended Key Usage for client authentication. A requirement for ESC3.
     $EnrollmentAgentEKU = '1\.3\.6\.1\.4\.1\.311\.20\.2\.1'
@@ -261,6 +268,7 @@ function Invoke-Locksmith {
     $ScansParameters = @{
         ADCSObjects        = $ADCSObjects
         ClientAuthEkus     = $ClientAuthEKUs
+        ServerAuthEKUs     = $ServerAuthEKUs
         DangerousRights    = $DangerousRights
         EnrollmentAgentEKU = $EnrollmentAgentEKU
         Mode               = $Mode
@@ -281,10 +289,14 @@ function Invoke-Locksmith {
     $ESC4 = $Results['ESC4']
     $ESC5 = $Results['ESC5']
     $ESC6 = $Results['ESC6']
+    $ESC7 = $Results['ESC7']
     $ESC8 = $Results['ESC8']
+    $ESC9 = $Results['ESC9']
     $ESC11 = $Results['ESC11']
     $ESC13 = $Results['ESC13']
     $ESC15 = $Results['ESC15']
+    $ESC16 = $Results['ESC16']
+    $ESC17 = $Results['ESC17']
 
     # If these are all empty = no issues found, exit
     if ($null -eq $Results) {
@@ -303,19 +315,25 @@ function Invoke-Locksmith {
             Format-Result -Issue $ESC4 -Mode 0
             Format-Result -Issue $ESC5 -Mode 0
             Format-Result -Issue $ESC6 -Mode 0
+            Format-Result -Issue $ESC7 -Mode 0
             Format-Result -Issue $ESC8 -Mode 0
+            Format-Result -Issue $ESC9 -Mode 0
             Format-Result -Issue $ESC11 -Mode 0
             Format-Result -Issue $ESC13 -Mode 0
             Format-Result -Issue $ESC15 -Mode 0
+            Format-Result -Issue $ESC16 -Mode 0
+            Format-Result -Issue $ESC17 -Mode 0
             Write-Host @"
 [!] You ran Locksmith in Mode 0 which only provides an high-level overview of issues
 identified in the environment. For more details including:
 
-  - DistinguishedName of impacted object(s)
-  - Remediation guidance and/or code
+  - Detailed Risk Rating
+  - General remediation guidance and/or code for all issues
+  - Custom remediation guidance and/or code for some issues!
   - Revert guidance and/or code (in case remediation breaks something!)
+  - Distinguished Name of impacted object(s)
 
-Run Locksmith in Mode 1!
+Try Mode 1!
 
 # Module version
 Invoke-Locksmith -Mode 1
@@ -332,16 +350,20 @@ Invoke-Locksmith -Mode 1
             Format-Result -Issue $ESC4 -Mode 1
             Format-Result -Issue $ESC5 -Mode 1
             Format-Result -Issue $ESC6 -Mode 1
+            Format-Result -Issue $ESC7 -Mode 1
             Format-Result -Issue $ESC8 -Mode 1
+            Format-Result -Issue $ESC9 -Mode 1
             Format-Result -Issue $ESC11 -Mode 1
             Format-Result -Issue $ESC13 -Mode 1
             Format-Result -Issue $ESC15 -Mode 1
+            Format-Result -Issue $ESC16 -Mode 1
+            Format-Result -Issue $ESC17 -Mode 1
         }
         2 {
             $Output = Join-Path -Path $OutputPath -ChildPath "$FilePrefix ADCSIssues.CSV"
             Write-Host "Writing AD CS issues to $Output..."
             try {
-                $AllIssues | Select-Object Forest, Technique, Name, Issue | Export-Csv -NoTypeInformation $Output
+                $AllIssues | Select-Object Forest, Technique, Name, Issue, @{l = 'Risk'; e = { $_.RiskName } } | Export-Csv -NoTypeInformation $Output
                 Write-Host "$Output created successfully!`n"
             } catch {
                 Write-Host 'Ope! Something broke.'
@@ -351,7 +373,7 @@ Invoke-Locksmith -Mode 1
             $Output = Join-Path -Path $OutputPath -ChildPath "$FilePrefix ADCSRemediation.CSV"
             Write-Host "Writing AD CS issues to $Output..."
             try {
-                $AllIssues | Select-Object Forest, Technique, Name, DistinguishedName, Issue, Fix | Export-Csv -NoTypeInformation $Output
+                $AllIssues | Select-Object Forest, Technique, Name, DistinguishedName, Issue, Fix, @{l = 'Risk'; e = { $_.RiskName } }, @{l = 'Risk Score'; e = { $_.RiskValue } }, @{l = 'Risk Score Detail'; e = { $_.RiskScoring -join "`n" } } | Export-Csv -NoTypeInformation $Output
                 Write-Host "$Output created successfully!`n"
             } catch {
                 Write-Host 'Ope! Something broke.'
@@ -373,5 +395,6 @@ Invoke-Locksmith -Mode 1
         }
     }
     Write-Host 'Thank you for using ' -NoNewline
-    Write-Host "Locksmith <3`n" -ForegroundColor Magenta
+    Write-Host 'Locksmith <3 ' -ForegroundColor Magenta -NoNewline
+    Write-Host "(https://github.com/jakehildreth/Locksmith)`n"
 }

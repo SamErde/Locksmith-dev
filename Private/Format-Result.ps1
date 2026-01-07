@@ -21,7 +21,7 @@ function Format-Result {
         Formats the issue result in list format.
 
     .NOTES
-        Author: Spencer Alessi
+        Authors: Spencer Alessi & Jake Hildreth
     #>
     [CmdletBinding()]
     param(
@@ -32,16 +32,20 @@ function Format-Result {
 
     $IssueTable = @{
         DETECT        = 'Auditing Not Fully Enabled'
-        ESC1          = 'ESC1 - Vulnerable Certificate Template - Authentication'
+        ESC1          = 'ESC1 - Vulnerable Certificate Template - Client Authentication'
         ESC2          = 'ESC2 - Vulnerable Certificate Template - Subordinate CA/Any Purpose'
         ESC3          = 'ESC3 - Vulnerable Certificate Template - Enrollment Agent'
         ESC4          = 'ESC4 - Vulnerable Access Control - Certificate Template'
         ESC5          = 'ESC5 - Vulnerable Access Control - PKI Object'
         ESC6          = 'ESC6 - EDITF_ATTRIBUTESUBJECTALTNAME2 Flag Enabled'
+        ESC7          = 'ESC7 - Non-standard PKI Admins'
         ESC8          = 'ESC8 - HTTP/S Enrollment Enabled'
+        ESC9          = 'ESC9 - szOID_NTDS_CA_SECURITY_EXT Extension Disabled on Template'
         ESC11         = 'ESC11 - IF_ENFORCEENCRYPTICERTREQUEST Flag Disabled'
         ESC13         = 'ESC13 - Vulnerable Certificate Template - Group-Linked'
         'ESC15/EKUwu' = 'ESC15 - Vulnerable Certificate Template - Schema V1'
+        ESC16         = 'ESC16 - szOID_NTDS_CA_SECURITY_EXT Extension Disabled on CA'
+        ESC17         = 'ESC17 - Vulnerable Certificate Template - Server Authentication'
     }
 
     $RiskTable = @{
@@ -65,12 +69,12 @@ function Format-Result {
         if ($Mode -eq 0) {
             # TODO Refactor this
             switch ($UniqueIssue) {
-                { $_ -in @('DETECT', 'ESC6', 'ESC8', 'ESC11') } {
+                { $_ -in @('DETECT', 'ESC6', 'ESC7', 'ESC8', 'ESC11', 'ESC16') } {
                     $Issue |
                     Format-Table Technique, @{l = 'CA Name'; e = { $_.Name } }, @{l = 'Risk'; e = { $_.RiskName } }, Issue -Wrap |
                     Write-HostColorized -PatternColorMap $RiskTable -CaseSensitive
                 }
-                { $_ -in @('ESC1', 'ESC2', 'ESC3', 'ESC4', 'ESC13', 'ESC15/EKUwu') } {
+                { $_ -in @('ESC1', 'ESC2', 'ESC3', 'ESC4', 'ESC9', 'ESC13', 'ESC15/EKUwu', 'ESC17') } {
                     $Issue |
                     Format-Table Technique, @{l = 'Template Name'; e = { $_.Name } }, @{l = 'Risk'; e = { $_.RiskName } }, Enabled, Issue -Wrap |
                     Write-HostColorized -PatternColorMap $RiskTable -CaseSensitive
@@ -83,12 +87,12 @@ function Format-Result {
             }
         } elseif ($Mode -eq 1) {
             switch ($UniqueIssue) {
-                { $_ -in @('DETECT', 'ESC6', 'ESC8', 'ESC11') } {
+                { $_ -in @('DETECT', 'ESC6', 'ESC7', 'ESC8', 'ESC11', 'ESC16') } {
                     $Issue |
                     Format-List Technique, @{l = 'CA Name'; e = { $_.Name } }, @{l = 'Risk'; e = { $_.RiskName } }, DistinguishedName, Issue, Fix, @{l = 'Risk Score'; e = { $_.RiskValue } }, @{l = 'Risk Score Detail'; e = { $_.RiskScoring -join "`n" } } |
                     Write-HostColorized -PatternColorMap $RiskTable -CaseSensitive
                 }
-                { $_ -in @('ESC1', 'ESC2', 'ESC3', 'ESC4', 'ESC13', 'ESC15/EKUwu') } {
+                { $_ -in @('ESC1', 'ESC2', 'ESC3', 'ESC4', 'ESC9', 'ESC13', 'ESC15/EKUwu') } {
                     $Issue |
                     Format-List Technique, @{l = 'Template Name'; e = { $_.Name } }, @{l = 'Risk'; e = { $_.RiskName } }, DistinguishedName, Enabled, EnabledOn, Issue, Fix, @{l = 'Risk Score'; e = { $_.RiskValue } }, @{l = 'Risk Score Detail'; e = { $_.RiskScoring -join "`n" } } |
                     Write-HostColorized -PatternColorMap $RiskTable -CaseSensitive

@@ -25,10 +25,12 @@
         Date: July 15, 2022
     #>
 
+    # TODO REfactor to move the creation of each property into its own function
+
     [CmdletBinding(SupportsShouldProcess)]
     param (
         [parameter(
-            Mandatory = $true,
+            Mandatory,
             ValueFromPipeline = $true)]
         [Microsoft.ActiveDirectory.Management.ADEntity[]]$ADCSObjects,
         [PSCredential]$Credential,
@@ -36,10 +38,9 @@
     )
 
     begin {
-        $CAEnrollmentEndpoint = @()
         if (-not ([System.Management.Automation.PSTypeName]'TrustAllCertsPolicy') ) {
             if ($PSVersionTable.PSEdition -eq 'Desktop') {
-                $code = @"
+                $code = @'
                     using System.Net;
                     using System.Security.Cryptography.X509Certificates;
                     public class TrustAllCertsPolicy : ICertificatePolicy {
@@ -47,11 +48,11 @@
                             return true;
                         }
                     }
-"@
+'@
                 Add-Type -TypeDefinition $code -Language CSharp
                 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
             } else {
-                Add-Type @"
+                Add-Type @'
                     using System.Net;
                     using System.Security.Cryptography.X509Certificates;
                     using System.Net.Security;
@@ -60,7 +61,7 @@
                             return true;
                         }
                     }
-"@
+'@
                 # Set the ServerCertificateValidationCallback
                 [System.Net.ServicePointManager]::ServerCertificateValidationCallback = [TrustAllCertsPolicy]::TrustAllCerts
             }
@@ -69,8 +70,8 @@
 
     process {
         $ADCSObjects | Where-Object objectClass -Match 'pKIEnrollmentService' | ForEach-Object {
-            #[array]$CAEnrollmentEndpoint = $_.'msPKI-Enrollment-Servers' | Select-String 'http.*' | ForEach-Object { $_.Matches[0].Value }
-            foreach ($directory in @("certsrv/", "$($_.Name)_CES_Kerberos/service.svc", "$($_.Name)_CES_Kerberos/service.svc/CES", "ADPolicyProvider_CEP_Kerberos/service.svc", "certsrv/mscep/")) {
+            $CAEnrollmentEndpoint = @()
+            foreach ($directory in @('certsrv/', "$($_.Name)_CES_Kerberos/service.svc", "$($_.Name)_CES_Kerberos/service.svc/CES", 'ADPolicyProvider_CEP_Kerberos/service.svc', 'certsrv/mscep/')) {
                 $URL = "://$($_.dNSHostName)/$directory"
                 try {
                     $Auth = 'NTLM'
@@ -79,7 +80,7 @@
                     $Cache = [System.Net.CredentialCache]::New()
                     $Cache.Add([System.Uri]::new($FullURL), $Auth, [System.Net.CredentialCache]::DefaultNetworkCredentials)
                     $Request.Credentials = $Cache
-                    $Request.Timeout = 1000
+                    $Request.Timeout = 100
                     $Request.GetResponse() | Out-Null
                     $CAEnrollmentEndpoint += @{
                         'URL'  = $FullURL
@@ -93,7 +94,7 @@
                         $Cache = [System.Net.CredentialCache]::New()
                         $Cache.Add([System.Uri]::new($FullURL), $Auth, [System.Net.CredentialCache]::DefaultNetworkCredentials)
                         $Request.Credentials = $Cache
-                        $Request.Timeout = 1000
+                        $Request.Timeout = 100
                         $Request.GetResponse() | Out-Null
                         $CAEnrollmentEndpoint += @{
                             'URL'  = $FullURL
@@ -107,13 +108,14 @@
                             $Cache = [System.Net.CredentialCache]::New()
                             $Cache.Add([System.Uri]::new($FullURL), $Auth, [System.Net.CredentialCache]::DefaultNetworkCredentials)
                             $Request.Credentials = $Cache
-                            $Request.Timeout = 1000
+                            $Request.Timeout = 100
                             $Request.GetResponse() | Out-Null
                             $CAEnrollmentEndpoint += @{
                                 'URL'  = $FullURL
                                 'Auth' = $Auth
                             }
                         } catch {
+                            Write-Debug "There may have been an error or something nothing found. $_"
                         }
                     }
                 }
@@ -127,11 +129,11 @@
                 $CAHostDistinguishedName = (Get-ADObject -Filter { (Name -eq $CAHostName) -and (objectclass -eq 'computer') } -Server $ForestGC ).DistinguishedName
                 $CAHostFQDN = (Get-ADObject -Filter { (Name -eq $CAHostName) -and (objectclass -eq 'computer') } -Properties DnsHostname -Server $ForestGC).DnsHostname
             }
-            $ping = Test-Connection -ComputerName $CAHostFQDN -Quiet -Count 1
+            $ping = if ($CAHostFQDN) { Test-Connection -ComputerName $CAHostFQDN -Count 1 -Quiet } else { Write-Warning "Unable to resolve $($_.Name) Fully Qualified Domain Name (FQDN)" }
             if ($ping) {
                 try {
                     if ($Credential) {
-                        $CertutilAudit = Invoke-Command -ComputerName $CAHostname -Credential $Credential -ScriptBlock { param($CAFullName); certutil -config $CAFullName -getreg CA\AuditFilter } -ArgumentList $CAFullName
+                        $CertutilAudit = Invoke-Command -ComputerName $CAHostFQDN -Credential $Credential -ScriptBlock { certutil -config $using:CAFullName -getreg CA\AuditFilter }
                     } else {
                         $CertutilAudit = certutil -config $CAFullName -getreg CA\AuditFilter
                     }
@@ -140,7 +142,7 @@
                 }
                 try {
                     if ($Credential) {
-                        $CertutilFlag = Invoke-Command -ComputerName $CAHostname -Credential $Credential -ScriptBlock { param($CAFullName); certutil -config $CAFullName -getreg policy\EditFlags } -ArgumentList $CAFullName
+                        $CertutilFlag = Invoke-Command -ComputerName $CAHostFQDN -Credential $Credential -ScriptBlock { certutil -config $using:CAFullName -getreg policy\EditFlags }
                     } else {
                         $CertutilFlag = certutil -config $CAFullName -getreg policy\EditFlags
                     }
@@ -149,17 +151,39 @@
                 }
                 try {
                     if ($Credential) {
-                        $CertutilInterfaceFlag = Invoke-Command -ComputerName $CAHostname -Credential $Credential -ScriptBlock { param($CAFullName); certutil -config $CAFullName -getreg CA\InterfaceFlags } -ArgumentList $CAFullName
+                        $CertutilInterfaceFlag = Invoke-Command -ComputerName $CAHostFQDN -Credential $Credential -ScriptBlock { certutil -config $using:CAFullName -getreg CA\InterfaceFlags }
                     } else {
                         $CertutilInterfaceFlag = certutil -config $CAFullName -getreg CA\InterfaceFlags
                     }
                 } catch {
                     $InterfaceFlag = 'Failure'
                 }
+                try {
+                    if ($Credential) {
+                        $CertutilSecurity = Invoke-Command -ComputerName $CAHostFQDN -Credential $Credential -ScriptBlock { certutil -config $using:CAFullName -getreg CA\Security }
+                    } else {
+                        $CertutilSecurity = certutil -config $CAFullName -getreg CA\Security
+                    }
+                } catch {
+                    $CAAdministrator = 'Failure'
+                    $CertificateManager = 'Failure'
+                }
+                try {
+                    if ($Credential) {
+                        $CertutilDisableExtensionList = Invoke-Command -ComputerName $CAHostFQDN -Credential $Credential -ScriptBlock { certutil -config $using:CAFullName -getreg policy\DisableExtensionList }
+                    } else {
+                        $CertutilDisableExtensionList = certutil -config $CAFullName -getreg policy\DisableExtensionList
+                    }
+                } catch {
+                    $CertutilDisableExtensionList = 'Failure'
+                }
             } else {
                 $AuditFilter = 'CA Unavailable'
                 $SANFlag = 'CA Unavailable'
                 $InterfaceFlag = 'CA Unavailable'
+                $CAAdministrator = 'CA Unavailable'
+                $CertificateManager = 'CA Unavailable'
+                $DisableExtensionList = 'CA Unavailable'
             }
             if ($CertutilAudit) {
                 try {
@@ -190,6 +214,26 @@
                     $InterfaceFlag = 'No'
                 }
             }
+            if ($CertutilSecurity) {
+                [string[]]$CAAdministrator = $CertutilSecurity | ForEach-Object {
+                    if ($_ -match '^.*Allow.*CA Administrator.*.*\t(.*)$') {
+                        $matches[1].ToString()
+                    }
+                }
+                [string[]]$CertificateManager = $CertutilSecurity | ForEach-Object {
+                    if ($_ -match '^.*Allow.*Certificate Manager.*\t(.*)$') {
+                        $matches[1].ToString()
+                    }
+                }
+            }
+            if ($CertutilDisableExtensionList) {
+                [string]$DisableExtensionList = $CertutilDisableExtensionList | Select-String '1\.3\.6\.1\.4\.1\.311\.25\.2'
+                if ($DisableExtensionList) {
+                    $DisableExtensionList = 'Yes'
+                } else {
+                    $DisableExtensionList = 'No'
+                }
+            }
             Add-Member -InputObject $_ -MemberType NoteProperty -Name AuditFilter -Value $AuditFilter -Force
             Add-Member -InputObject $_ -MemberType NoteProperty -Name CAEnrollmentEndpoint -Value $CAEnrollmentEndpoint -Force
             Add-Member -InputObject $_ -MemberType NoteProperty -Name CAFullName -Value $CAFullName -Force
@@ -197,6 +241,9 @@
             Add-Member -InputObject $_ -MemberType NoteProperty -Name CAHostDistinguishedName -Value $CAHostDistinguishedName -Force
             Add-Member -InputObject $_ -MemberType NoteProperty -Name SANFlag -Value $SANFlag -Force
             Add-Member -InputObject $_ -MemberType NoteProperty -Name InterfaceFlag -Value $InterfaceFlag -Force
+            Add-Member -InputObject $_ -MemberType NoteProperty -Name CAAdministrator -Value $CAAdministrator -Force
+            Add-Member -InputObject $_ -MemberType NoteProperty -Name CertificateManager -Value $CertificateManager -Force
+            Add-Member -InputObject $_ -MemberType NoteProperty -Name DisableExtensionList -Value $DisableExtensionList -Force
         }
     }
 }

@@ -173,12 +173,14 @@ Set-Acl -Path 'AD:$($_.DistinguishedName)' -AclObject `$ACL
                     Technique             = 'ESC4'
                 }
 
-                if ( $Mode -in @(1, 3, 4) ) {
-                    Update-ESC4Remediation -Issue $Issue
-                }
                 if ($SkipRisk -eq $false) {
                     Set-RiskRating -ADCSObjects $ADCSObjects -Issue $Issue -SafeUsers $SafeUsers -UnsafeUsers $UnsafeUsers
                 }
+
+                if ( $Mode -in @(1, 3, 4) ) {
+                    Update-ESC4Remediation -Issue $Issue
+                }
+
                 $Issue
             }
         }

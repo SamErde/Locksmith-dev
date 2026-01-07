@@ -401,7 +401,7 @@ $ACL.AddAccessRule($AccessRule)
 Set-Acl "AD:$ESC5WriteOwner" -AclObject $ACL
 
 Get-ADObject -Filter 'objectClass -eq "pKIEnrollmentService"' -SearchBase $PKSContainer -Properties * | ForEach-Object {
-    $ForestGC = $(Get-ADDomainController -Discover -Service GlobalCatalog -ForceDiscover | Select-Object -ExpandProperty Hostname) + ":3268"
+    $ForestGC = $(Get-ADDomainController -Discover -Service GlobalCatalog -ForceDiscover | Select-Object -ExpandProperty Hostname) + ':3268'
     [string]$CAFullName = "$($_.dNSHostName)\$($_.Name)"
     $CAHostname = $_.dNSHostName.split('.')[0]
     $CAHostFQDN = (Get-ADObject -Filter { (Name -eq $CAHostName) -and (objectclass -eq 'computer') } -Properties DnsHostname -Server $ForestGC).DnsHostname

@@ -94,7 +94,7 @@ function New-Dictionary {
             Category      = 'Escalation Path'
             Subcategory   = 'Vulnerable Certificate Authority Access Control'
             Summary       = ''
-            FindIt        = { Write-Output 'We have not created Find-ESC7 yet.' }
+            FindIt        = { Find-ESC7 }
             FixIt         = { Write-Output 'Add code to fix the vulnerable configuration.' }
             ReferenceUrls = 'https://posts.specterops.io/certified-pre-owned-d95910965cd2#:~:text=Vulnerable%20Certificate%20Authority%20Access%20Control%20%E2%80%94%20ESC7'
         },

@@ -6,8 +6,10 @@ function Update-ESC4Remediation {
     .DESCRIPTION
         This function takes a single ESC4 issue as input. It then prompts the user if the principal with the ESC4 rights
         administers the template in question.
-        If the principal is an admin of the template, the Issue attribute is updated to indicate this configuration is
-        expected, and the Fix attribute for the issue is updated to indicate no remediation is needed.
+        If the principal is an admin of the template:
+          - the Issue attribute is updated to indicate this configuration is expected
+          - the Fix attribute for the issue is updated to indicate no remediation is needed
+          - the Risk Value, Risk Name, and Risk Scoring Details are updated to indicate no risk
         If the the principal is not an admin of the template AND the rights assigned is GenericAll, Locksmith will ask
         if Enroll or AutoEnroll rights are needed.
         Depending on the answers to the listed questions, the Fix attribute is updated accordingly.
@@ -42,12 +44,20 @@ function Update-ESC4Remediation {
 
     $Admin = ''
     do {
-        $Admin = Read-Host "`nDoes $($Issue.IdentityReference) administer and/or maintain the $($Issue.Name) template? [y/n]"
+        $Admin = Read-Host "`n[?] Does $($Issue.IdentityReference) administer and/or maintain the $($Issue.Name) template? [y/n]"
     } while ( ($Admin -ne 'y') -and ($Admin -ne 'n') )
 
     if ($Admin -eq 'y') {
-        $Issue.Issue = "$($Issue.IdentityReference) has $($Issue.ActiveDirectoryRights) rights on this template, but this is expected."
+        $Issue.Issue = @"
+$($Issue.IdentityReference) has $($Issue.ActiveDirectoryRights) rights on this template, but this is expected.
+
+More info:
+  - https://posts.specterops.io/certified-pre-owned-d95910965cd2
+"@
         $Issue.Fix = "No immediate remediation required."
+        $Issue | Add-Member -NotePropertyName RiskValue -NotePropertyValue 0 -Force
+        $Issue | Add-Member -NotePropertyName RiskName -NotePropertyValue 'Informational' -Force
+        $Issue | Add-Member -NotePropertyName RiskScoring -NotePropertyValue "$($Issue.IdentityReference) administers this template" -Force
     } elseif ($Issue.Issue -match 'GenericAll') {
         $RightsToRestore = 0
         while ($RightsToRestore -notin 1..5) {

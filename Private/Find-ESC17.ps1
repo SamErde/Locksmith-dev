@@ -1,7 +1,7 @@
-function Find-ESC15 {
+﻿function Find-ESC17 {
     <#
     .SYNOPSIS
-        This script finds AD CS (Active Directory Certificate Services) objects that have the ESC15/EUKwu vulnerability.
+        This script finds AD CS (Active Directory Certificate Services) objects that have the ESC1 vulnerability.
 
     .DESCRIPTION
         The script takes an array of ADCS objects as input and filters them based on the specified conditions.
@@ -11,17 +11,23 @@ function Find-ESC15 {
     .PARAMETER ADCSObjects
         Specifies the array of ADCS objects to be processed. This parameter is mandatory.
 
+    .PARAMETER SafeUsers
+        Specifies the list of SIDs of safe users who are allowed to have specific rights on the objects. This parameter is mandatory.
+
+    .PARAMETER ServerAuthEKUs
+        A list of EKUs that can be used for server authentication.
+
     .OUTPUTS
         The script outputs an array of custom objects representing the matching ADCS objects and their associated information.
 
     .EXAMPLE
         $Targets = Get-Target
-        $ADCSObjects = Get-ADCSObjects -Targets $Targets
+        $ADCSObjects = Get-ADCSObject -Targets $Targets
         $SafeUsers = '-512$|-519$|-544$|-18$|-517$|-500$|-516$|-521$|-498$|-9$|-526$|-527$|S-1-5-10'
-        $Results = Find-ESC15 -ADCSObjects $ADCSObjects -SafeUser $SafeUsers
+        $ServerAuthEKUs = '1\.3\.6\.1\.5\.5\.7\.3\.1' 
+        $Results = Find-ESC1 -ADCSObjects $ADCSObjects -SafeUsers $SafeUsers -ClientAuthEKUs $ServerAuthEKUs
         $Results
     #>
-    [alias('Find-EKUwu')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -29,13 +35,19 @@ function Find-ESC15 {
         [Parameter(Mandatory)]
         [string]$SafeUsers,
         [Parameter(Mandatory)]
+        $ServerAuthEKUs,
+        [Parameter(Mandatory)]
+        [int]$Mode,
+        [Parameter(Mandatory)]
         [string]$UnsafeUsers,
         [switch]$SkipRisk
     )
     $ADCSObjects | Where-Object {
         ($_.objectClass -eq 'pKICertificateTemplate') -and
-        ($_.'msPKI-Template-Schema-Version' -eq 1) -and
-        ($_.Enabled)
+        ($_.pkiExtendedKeyUsage -match $ServerAuthEKUs) -and
+        ($_.'msPKI-Certificate-Name-Flag' -band 1) -and
+        !($_.'msPKI-Enrollment-Flag' -band 2) -and
+        ( ($_.'msPKI-RA-Signature' -eq 0) -or ($null -eq $_.'msPKI-RA-Signature') )
     } | ForEach-Object {
         foreach ($entry in $_.nTSecurityDescriptor.Access) {
             $Principal = New-Object System.Security.Principal.NTAccount($entry.IdentityReference)
@@ -60,42 +72,39 @@ function Find-ESC15 {
                     Enabled               = $_.Enabled
                     EnabledOn             = $_.EnabledOn
                     Issue                 = @"
-$($_.Name) uses AD CS Template Schema Version 1, and $($entry.IdentityReference)
-is allowed to enroll in this template.
+$($entry.IdentityReference) can provide a Subject Alternative Name (SAN) while
+enrolling in this Server Authentication template, and enrollment does not require
+Manager Approval.
 
-If patches for CVE-2024-49019 have not been applied it may be possible to include
-arbitrary Application Policies while enrolling in this template, including
-Application Policies that permit Client Authentication or allow the creation
-of Subordinate CAs.
+The resultant certificate can be used by an attacker to impersonate servers
+and perform Machine-in-the-Middle Attacks
 
 More info:
-  - https://trustedsec.com/blog/ekuwu-not-just-another-ad-cs-esc
-  - https://msrc.microsoft.com/update-guide/vulnerability/CVE-2024-49019
+  - https://trustedsec.com/blog/wsus-is-sus-ntlm-relay-attacks-in-plain-sight
+  - https://blog.digitrace.de/2026/01/using-adcs-to-attack-https-enabled-wsus-clients/
 
 "@
                     Fix                   = @"
-<#
-    Option 1: Manual Remediation
-    Step 1: Identify if this template is Enabled on any CA.
-    Step 2: If Enabled, identify if this template has recently been used to generate a certificate.
-    Step 3a: If recently used, either restrict enrollment scope or convert to the template to Schema V2.
-    Step 3b: If not recently used, unpublish the template from all CAs.
-#>
-
-<#
-    Option 2: Scripted Remediation
-    Step 1: Open an elevated Powershell session as an AD or PKI Admin
-    Step 2: Run Unpublish-SchemaV1Templates.ps1
-#>
-Invoke-WebRequest -Uri https://gist.githubusercontent.com/jakehildreth/13c7d615adc905d317fc4379026ad28e/raw/Unpublish-SchemaV1Templates.ps1 | Invoke-Expression
-
+# Enable Manager Approval
+`$Object = '$($_.DistinguishedName)'
+Get-ADObject `$Object | Set-ADObject -Replace @{'msPKI-Enrollment-Flag' = 2}
 "@
-                    Revert                = '[TODO]'
-                    Technique             = 'ESC15/EKUwu'
+                    Revert                = @"
+# Disable Manager Approval
+`$Object = '$($_.DistinguishedName)'
+Get-ADObject `$Object | Set-ADObject -Replace @{'msPKI-Enrollment-Flag' = 0}
+"@
+                    Technique             = 'ESC17'
                 }
+
                 if ($SkipRisk -eq $false) {
                     Set-RiskRating -ADCSObjects $ADCSObjects -Issue $Issue -SafeUsers $SafeUsers -UnsafeUsers $UnsafeUsers
                 }
+
+                # if ( $Mode -in @(1, 3, 4) ) {
+                #     Update-ESC1Remediation -Issue $Issue
+                # }
+
                 $Issue
             }
         }

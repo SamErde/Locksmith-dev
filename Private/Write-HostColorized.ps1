@@ -97,15 +97,15 @@ Function Write-HostColorized {
     #   * At least for now, we remain PSv2-COMPATIBLE.
     #   * Thus:
     #     * no `[ordered]`, `::new()`, `[pscustomobject]`, ...
-    #     * No implicit Boolean properties in [CmdletBinding()] and [Parameter()] attributes (`Mandatory = $true` instead of just `Mandatory`)
+    #     * No implicit Boolean properties in [CmdletBinding()] and [Parameter()] attributes (`Mandatory` instead of just `Mandatory`)
     # ===
 
     [CmdletBinding(DefaultParameterSetName = 'SingleColor')]
     param(
-        [Parameter(ParameterSetName = 'SingleColor', Position = 0, Mandatory = $True)] [string[]] $Pattern,
+        [Parameter(ParameterSetName = 'SingleColor', Position = 0, Mandatory)] [string[]] $Pattern,
         [Parameter(ParameterSetName = 'SingleColor', Position = 1)] [ConsoleColor] $ForegroundColor = [ConsoleColor]::Yellow,
         [Parameter(ParameterSetName = 'SingleColor', Position = 2)] [ConsoleColor] $BackgroundColor,
-        [Parameter(ParameterSetName = 'PerPatternColor', Position = 0, Mandatory = $True)] [System.Collections.IDictionary] $PatternColorMap,
+        [Parameter(ParameterSetName = 'PerPatternColor', Position = 0, Mandatory)] [System.Collections.IDictionary] $PatternColorMap,
         [Parameter(ValueFromPipeline = $True)] $InputObject,
         [switch] $WholeLine,
         [switch] $SimpleMatch,

@@ -5,12 +5,12 @@ function Invoke-Scans {
 
     .PARAMETER Scans
         Specifies the type of scans to perform. Multiple scan options can be provided as an array. The default value is 'All'.
-        The available scan options are: 'Auditing', 'ESC1', 'ESC2', 'ESC3', 'ESC4', 'ESC5', 'ESC6', 'ESC8', 'ESC11',
-            'ESC13', 'ESC15, 'EKUwu', 'All', 'PromptMe'.
+        The available scan options are: 'Auditing', 'ESC1', 'ESC2', 'ESC3', 'ESC4', 'ESC5', 'ESC6', 'ESC8', 'ESC9', 'ESC11',
+            'ESC13', 'ESC15, 'EKUwu', 'ESC16', 'ESC17', 'All', 'PromptMe'.
 
     .NOTES
         - The script requires the following functions to be defined: Find-AuditingIssue, Find-ESC1, Find-ESC2, Find-ESC3C1,
-          Find-ESC3C2, Find-ESC4, Find-ESC5, Find-ESC6, Find-ESC8, Find-ESC11, Find-ESC13, Find-ESC15
+          Find-ESC3C2, Find-ESC4, Find-ESC5, Find-ESC6, Find-ESC8, Find-ESC9, Find-ESC11, Find-ESC13, Find-ESC15, Find-ESC16
         - The script uses Out-GridView or Out-ConsoleGridView for interactive selection when the 'PromptMe' scan option is chosen.
         - The script returns a hash table containing the results of the scans.
 
@@ -37,6 +37,8 @@ function Invoke-Scans {
         [Parameter(Mandatory)]
         [string]$ClientAuthEkus,
         [Parameter(Mandatory)]
+        [string]$ServerAuthEkus,
+        [Parameter(Mandatory)]
         [string]$DangerousRights,
         [Parameter(Mandatory)]
         [string]$EnrollmentAgentEKU,
@@ -48,7 +50,7 @@ function Invoke-Scans {
         [string]$SafeUsers,
         [Parameter(Mandatory)]
         [string]$SafeOwners,
-        [ValidateSet('Auditing', 'ESC1', 'ESC2', 'ESC3', 'ESC4', 'ESC5', 'ESC6', 'ESC8', 'ESC11', 'ESC13', 'ESC15', 'EKUwu', 'All', 'PromptMe')]
+        [ValidateSet('Auditing', 'ESC1', 'ESC2', 'ESC3', 'ESC4', 'ESC5', 'ESC6', 'ESC7', 'ESC8', 'ESC9', 'ESC11', 'ESC13', 'ESC15', 'EKUwu', 'ESC16', 'ESC17', 'All', 'PromptMe')]
         [array]$Scans = 'All',
         [Parameter(Mandatory)]
         [string]$UnsafeUsers,
@@ -101,9 +103,17 @@ function Invoke-Scans {
             Write-Host 'Identifying Issuing CAs with EDITF_ATTRIBUTESUBJECTALTNAME2 enabled (ESC6)...'
             [array]$ESC6 = Find-ESC6 -ADCSObjects $ADCSObjects -UnsafeUsers $UnsafeUsers
         }
+        ESC7 {
+            Write-Host 'Identifying Issuing CAs with Non-Standard Admins (ESC7)...'
+            [array]$ESC7 = Find-ESC7 -ADCSObjects $ADCSObjects -UnsafeUsers $UnsafeUsers -SafeUsers $SafeUsers
+        }
         ESC8 {
             Write-Host 'Identifying HTTP-based certificate enrollment interfaces (ESC8)...'
             [array]$ESC8 = Find-ESC8 -ADCSObjects $ADCSObjects -UnsafeUsers $UnsafeUsers
+        }
+        ESC9 {
+            Write-Host 'Identifying AD CS templates with szOID_NTDS_CA_SECURITY_EXT disabled (ESC9)...'
+            [array]$ESC9 = Find-ESC9 -ADCSObjects $ADCSObjects -SafeUsers $SafeUsers -ClientAuthEKUs $ClientAuthEkus -Mode $Mode -UnsafeUsers $UnsafeUsers
         }
         ESC11 {
             Write-Host 'Identifying Issuing CAs with IF_ENFORCEENCRYPTICERTREQUEST disabled (ESC11)...'
@@ -121,6 +131,14 @@ function Invoke-Scans {
             Write-Host 'Identifying AD CS templates with dangerous ESC15/EKUwu configurations...'
             [array]$ESC15 = Find-ESC15 -ADCSObjects $ADCSObjects -SafeUsers $SafeUsers
         }
+        ESC16 {
+            Write-Host 'Identifying Issuing CAs with szOID_NTDS_CA_SECURITY_EXT disabled (ESC16)...'
+            [array]$ESC16 = Find-ESC16 -ADCSObjects $ADCSObjects -UnsafeUsers $UnsafeUsers
+        }
+        ESC17 {
+            Write-Host 'Identifying AD CS templates with dangerous ESC17 configurations...'
+            [array]$ESC17 = Find-ESC17 -ADCSObjects $ADCSObjects -SafeUsers $SafeUsers -ServerAuthEKUs $ServerAuthEKUs -Mode $Mode -UnsafeUsers $UnsafeUsers
+        }
         All {
             Write-Host 'Identifying auditing issues...'
             [array]$AuditingIssues = Find-AuditingIssue -ADCSObjects $ADCSObjects
@@ -137,23 +155,30 @@ function Invoke-Scans {
             [array]$ESC5 = Find-ESC5 -ADCSObjects $ADCSObjects -SafeUsers $SafeUsers -DangerousRights $DangerousRights -SafeOwners $SafeOwners -SafeObjectTypes $SafeObjectTypes -UnsafeUsers $UnsafeUsers
             Write-Host 'Identifying Certificate Authorities with EDITF_ATTRIBUTESUBJECTALTNAME2 enabled (ESC6)...'
             [array]$ESC6 = Find-ESC6 -ADCSObjects $ADCSObjects -UnsafeUsers $UnsafeUsers
+            Write-Host 'Identifying Certificate Authorities with Non-Standard Admins (ESC7)...'
+            [array]$ESC7 = Find-ESC7 -ADCSObjects $ADCSObjects -UnsafeUsers $UnsafeUsers -SafeUsers $SafeUsers
             Write-Host 'Identifying HTTP-based certificate enrollment interfaces (ESC8)...'
             [array]$ESC8 = Find-ESC8 -ADCSObjects $ADCSObjects -UnsafeUsers $UnsafeUsers
+            Write-Host 'Identifying AD CS templates with szOID_NTDS_CA_SECURITY_EXT disabled (ESC9)...'
+            [array]$ESC9 = Find-ESC9 -ADCSObjects $ADCSObjects -SafeUsers $SafeUsers -ClientAuthEKUs $ClientAuthEkus -Mode $Mode -UnsafeUsers $UnsafeUsers
             Write-Host 'Identifying Certificate Authorities with IF_ENFORCEENCRYPTICERTREQUEST disabled (ESC11)...'
             [array]$ESC11 = Find-ESC11 -ADCSObjects $ADCSObjects -UnsafeUsers $UnsafeUsers
             Write-Host 'Identifying AD CS templates with dangerous ESC13 configurations...'
             [array]$ESC13 = Find-ESC13 -ADCSObjects $ADCSObjects -SafeUsers $SafeUsers -ClientAuthEKUs $ClientAuthEkus -UnsafeUsers $UnsafeUsers
             Write-Host 'Identifying AD CS templates with dangerous ESC15 configurations...'
             [array]$ESC15 = Find-ESC15 -ADCSObjects $ADCSObjects -SafeUsers $SafeUsers -UnsafeUsers $UnsafeUsers
-            Write-Host
+            Write-Host 'Identifying Certificate Authorities with szOID_NTDS_CA_SECURITY_EXT disabled (ESC16)...'
+            [array]$ESC16 = Find-ESC16 -ADCSObjects $ADCSObjects -UnsafeUsers $UnsafeUsers
+            Write-Host 'Identifying AD CS templates with dangerous ESC17 configurations...'
+            [array]$ESC17 = Find-ESC17 -ADCSObjects $ADCSObjects -SafeUsers $SafeUsers -ServerAuthEKUs $ServerAuthEkus -Mode $Mode -UnsafeUsers $UnsafeUsers
         }
     }
 
-    [array]$AllIssues = $AuditingIssues + $ESC1 + $ESC2 + $ESC3 + $ESC4 + $ESC5 + $ESC6 + $ESC8 + $ESC11 + $ESC13 + $ESC15
+    [array]$AllIssues = $AuditingIssues + $ESC1 + $ESC2 + $ESC3 + $ESC4 + $ESC5 + $ESC6 + $ESC7 + $ESC8 + $ESC9 + $ESC11 + $ESC13 + $ESC15 + $ESC16 + $ESC17
 
     # If these are all empty = no issues found, exit
     if ($AllIssues.Count -lt 1) {
-        Write-Host "`n$(Get-Date) : No ADCS issues were found." -ForegroundColor Green
+        Write-Host "`n$(Get-Date) : No ADCS issues were found. :)" -ForegroundColor Green
         break
     }
 
@@ -167,9 +192,13 @@ function Invoke-Scans {
         ESC4           = $ESC4
         ESC5           = $ESC5
         ESC6           = $ESC6
+        ESC7           = $ESC7
         ESC8           = $ESC8
+        ESC9           = $ESC9
         ESC11          = $ESC11
         ESC13          = $ESC13
         ESC15          = $ESC15
+        ESC16          = $ESC16
+        ESC17          = $ESC17
     }
 }

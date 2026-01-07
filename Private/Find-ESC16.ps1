@@ -1,24 +1,19 @@
-﻿function Find-ESC6 {
+﻿function Find-ESC16 {
     <#
     .SYNOPSIS
-        This script finds AD CS (Active Directory Certificate Services) objects that have the ESC6 vulnerability.
+        This script finds Active Directory Certificate Services (AD CS) Certification Authorities (CA) that have the ESC16 vulnerability.
 
     .DESCRIPTION
         The script takes an array of ADCS objects as input and filters them based on objects that have the objectClass
-        'pKIEnrollmentService' and the SANFlag set to 'Yes'. For each matching object, it creates a custom object with
+        'pKIEnrollmentService' and the szOID_NTDS_CA_SECURITY_EXT disabled. For each matching object, it creates a custom object with
         properties representing various information about the object, such as Forest, Name, DistinguishedName, Technique,
         Issue, Fix, and Revert.
 
     .PARAMETER ADCSObjects
-        Specifies the array of ADCS objects to be processed. This parameter is mandatory.
+        Specifies the array of AD CS objects to be processed. This parameter is mandatory.
 
     .OUTPUTS
         The script outputs an array of custom objects representing the matching ADCS objects and their associated information.
-
-    .EXAMPLE
-        $ADCSObjects = Get-ADCSObjects
-        $Results = $ADCSObjects | Find-ESC6
-        $Results
     #>
     [CmdletBinding()]
     param(
@@ -31,39 +26,30 @@
     process {
         $ADCSObjects | Where-Object {
             ($_.objectClass -eq 'pKIEnrollmentService') -and
-            ($_.SANFlag -ne 'No')
+            ($_.DisableExtensionList -ne 'No')
         } | ForEach-Object {
-            [string]$CAFullName = "$($_.dNSHostName)\$($_.Name)"
             $Issue = [pscustomobject]@{
                 Forest            = $_.CanonicalName.split('/')[0]
                 Name              = $_.Name
-                CAFullname        = $CAFullName
                 DistinguishedName = $_.DistinguishedName
-                Issue             = $_.SANFlag
+                Issue             = $_.DisableExtensionList
                 Fix               = 'N/A'
                 Revert            = 'N/A'
-                Technique         = 'ESC6'
+                Technique         = 'ESC16'
             }
-            if ($_.SANFlag -eq 'Yes') {
+            if ($_.DisableExtensionList -eq 'Yes') {
                 $Issue.Issue = @"
-The dangerous EDITF_ATTRIBUTESUBJECTALTNAME2 flag is enabled on $CAFullname.
-All templates enabled on this CA will accept a Subject Alternative Name (SAN)
-during enrollment even if the template is not specifically configured to allow a SAN.
-
-As of May 2022, Microsoft has neutered this situation by requiring all SANs to
-be strongly mapped to certificates.
-
-However, if strong mapping has been explicitly disabled on Domain Controllers,
-this configuration remains vulnerable to privilege escalation attacks.
+The Certification Authority (CA) $($_.CAFullName) has the szOID_NTDS_CA_SECURITY_EXT security extension disabled. When
+this extension is disabled, every certificate issued by this CA will be unable to reliably map a certificate to a
+user or computer account's SID for authentication.
 
 More info:
-  - https://posts.specterops.io/certified-pre-owned-d95910965cd2
-  - https://support.microsoft.com/en-us/topic/kb5014754-certificate-based-authentication-changes-on-windows-domain-controllers-ad2c23b0-15d8-4340-a468-4d4f3b188f16
+  - https://github.com/ly4k/Certipy/wiki/06-%E2%80%90-Privilege-Escalation#esc16-security-extension-disabled-on-ca-globally
 
 "@
                 $Issue.Fix = @"
-# Disable the flag
-certutil -config '$CAFullname' -setreg policy\EditFlags -EDITF_ATTRIBUTESUBJECTALTNAME2
+# Enable the flag
+# TODO
 
 # Restart the Certificate Authority service
 Invoke-Command -ComputerName '$($_.dNSHostName)' -ScriptBlock {
@@ -71,8 +57,8 @@ Invoke-Command -ComputerName '$($_.dNSHostName)' -ScriptBlock {
 }
 "@
                 $Issue.Revert = @"
-# Enable the flag
-certutil -config '$CAFullname' -setreg policy\EditFlags +EDITF_ATTRIBUTESUBJECTALTNAME2
+# Disable the flag
+TODO
 
 # Restart the Certificate Authority service
 Invoke-Command -ComputerName '$($_.dNSHostName)' -ScriptBlock {

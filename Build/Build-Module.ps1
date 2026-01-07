@@ -1,6 +1,8 @@
 ﻿param (
     # A CalVer string if you need to manually override the default yyyy.M.d version string.
-    [string]$CalVer
+    [string]$CalVer,
+    [switch]$PublishToPSGallery,
+    [string]$PSGalleryAPIPath
 )
 
 if (Get-Module -Name 'PSPublishModule' -ListAvailable) {
@@ -9,6 +11,7 @@ if (Get-Module -Name 'PSPublishModule' -ListAvailable) {
     Write-Information 'PSPublishModule is not installed. Attempting installation.'
     try {
         Install-Module -Name Pester -AllowClobber -Scope CurrentUser -SkipPublisherCheck -Force
+        Install-Module -Name PSScriptAnalyzer -Scope CurrentUser -Force
         Install-Module -Name PSPublishModule -AllowClobber -Scope CurrentUser -Force
     } catch {
         Write-Error 'PSPublishModule installation failed.'
@@ -23,7 +26,7 @@ $CopyrightYear = if ($Calver) { $CalVer.Split('.')[0] } else { (Get-Date -Format
 Build-Module -ModuleName 'Locksmith' {
     # Usual defaults as per standard module
     $Manifest = [ordered] @{
-        ModuleVersion        = if ($Calver) { $CalVer } else { (Get-Date -Format yyyy.M.d) }
+        ModuleVersion        = if ($Calver) { $CalVer } else { (Get-Date -Format yyyy.M.d.Hmm) }
         CompatiblePSEditions = @('Desktop', 'Core')
         GUID                 = 'b1325b42-8dc4-4f17-aa1f-dcb5984ca14a'
         Author               = 'Jake Hildreth'
@@ -32,7 +35,7 @@ Build-Module -ModuleName 'Locksmith' {
         ProjectUri           = 'https://github.com/jakehildreth/Locksmith'
         IconUri              = 'https://raw.githubusercontent.com/jakehildreth/Locksmith/main/Images/locksmith.ico'
         PowerShellVersion    = '5.1'
-        Tags                 = @('Windows', 'Locksmith', 'CA', 'PKI', 'ActiveDirectory', 'CertificateServices', 'ADCS')
+        Tags                 = @('Locksmith', 'ActiveDirectory', 'ADCS', 'CA', 'Certificate', 'CertificateAuthority', 'CertificateServices', 'PKI', 'X509', 'Windows')
     }
     New-ConfigurationManifest @Manifest
 
@@ -120,20 +123,32 @@ Build-Module -ModuleName 'Locksmith' {
     New-ConfigurationBuild -Enable:$true -SignModule:$false -DeleteTargetModuleBeforeBuild -MergeModuleOnBuild #-UseWildcardForFunctions
 
     $PreScriptMerge = {
+        [CmdletBinding(HelpUri = 'https://jakehildreth.github.io/Locksmith/Invoke-Locksmith')]
         param (
-            [int]$Mode,
+            # The mode to run Locksmith in. Defaults to 0.
+            [Parameter(Mandatory = $false)]
+            [ValidateSet(0, 1, 2, 3, 4)]
+            [int]$Mode = 0,
+
+            # The scans to run. Defaults to 'All'.
             [Parameter()]
-            [ValidateSet('Auditing','ESC1','ESC2','ESC3','ESC4','ESC5','ESC6','ESC8','ESC11','ESC13','ESC15','EKUwu','All','PromptMe')]
-            [array]$Scans = 'All'
+            [ValidateSet('Auditing', 'ESC1', 'ESC2', 'ESC3', 'ESC4', 'ESC5', 'ESC6', 'ESC7', 'ESC8', 'ESC9', 'ESC11', 'ESC13', 'ESC15', 'EKUwu', 'ESC16', 'ESC17', 'All', 'PromptMe')]
+            [array]$Scans = 'All',
+
+            [Parameter()]
+            [ValidateScript({ Test-Path -Path $_ -PathType Container })]
+            [string]$OutputPath = $PWD
         )
     }
 
     $PostScriptMerge = { Invoke-Locksmith -Mode $Mode -Scans $Scans }
 
-    New-ConfigurationArtefact -Type Packed -Enable -Path "$PSScriptRoot\..\Artefacts\Packed" -ArtefactName '<ModuleName>.zip'
+    # New-ConfigurationArtefact -Type Packed -Enable -Path "$PSScriptRoot\..\Artefacts\Packed" -ArtefactName '<ModuleName>.zip'
     New-ConfigurationArtefact -Type Script -Enable -Path "$PSScriptRoot\..\Artefacts\Script" -PreScriptMerge $PreScriptMerge -PostScriptMerge $PostScriptMerge -ScriptName 'Invoke-<ModuleName>.ps1'
     New-ConfigurationArtefact -Type ScriptPacked -Enable -Path "$PSScriptRoot\..\Artefacts\ScriptPacked" -PreScriptMerge $PreScriptMerge -PostScriptMerge $PostScriptMerge -ScriptName 'Invoke-<ModuleName>.ps1' -ArtefactName 'Invoke-<ModuleName>.zip'
-    # New-ConfigurationPublish -Type PowerShellGallery -FilePath 'C:\Users\jake.BLUETUXEDO\Documents\API Keys\PSGallery.txt'
+    if ($PublishToPSGallery) {   
+        New-ConfigurationPublish -Type PowerShellGallery -FilePath $PSGalleryAPIPath -Enabled:$true
+    }
 }
 
 Copy-Item "$PSScriptRoot\..\Artefacts\Script\Invoke-Locksmith.ps1" "$PSScriptRoot\..\"
